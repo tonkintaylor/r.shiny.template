@@ -6,13 +6,10 @@ Authors@R:
 Description: What the package does (one paragraph).
 License: file LICENSE
 Imports:
-    bslib,
     config,
     fresh,
     golem,
-    shiny,
-    shinydashboard,
-    shinydashboardPlus
+    shiny
 Suggests: 
     knitr,
     pkgload,
