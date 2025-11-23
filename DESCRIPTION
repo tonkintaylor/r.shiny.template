@@ -1,20 +1,26 @@
 Package: whitelabel
 Title: An Amazing Shiny App
-Version: 0.0.0.9000
+Version: 0.1.0.9000
 Authors@R: 
-    person(given = "bilbo",
-           family = "baggins",
-           role = c("aut", "cre"),
-           email = "BBaggins@tonkintaylor.co.nz")
+    person("bilbo", "baggins", , "BBaggins@tonkintaylor.co.nz", role = c("aut", "cre"))
 Description: What the package does (one paragraph).
 License: file LICENSE
-Imports: 
+Imports:
+    bslib,
     config,
+    fresh,
     golem,
-    shiny
+    shiny,
+    shinydashboard,
+    shinydashboardPlus
+Suggests: 
+    knitr,
+    pkgload,
+    rmarkdown,
+    testthat (>= 3.0.0)
+VignetteBuilder: 
+    knitr
+Config/testthat/edition: 3
 Encoding: UTF-8
 LazyData: true
 RoxygenNote: 7.3.3
-Suggests: 
-    testthat (>= 3.0.0)
-Config/testthat/edition: 3

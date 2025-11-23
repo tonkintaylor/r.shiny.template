@@ -13,6 +13,8 @@ permissions: read-all
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    container:
+      image: rocker/shiny-verse:4.5.1
     environment: Production
 
     env:
@@ -22,11 +24,12 @@ jobs:
     steps:
       - name: Verify required secrets
         env:
+          SHINYAPPS_APPNAME: ${{ secrets.SHINYAPPS_APPNAME || vars.SHINYAPPS_APPNAME }}
           SHINYAPPS_NAME: ${{ secrets.SHINYAPPS_NAME || vars.SHINYAPPS_NAME }}
           SHINYAPPS_TOKEN: ${{ secrets.SHINYAPPS_TOKEN || vars.SHINYAPPS_TOKEN }}
           SHINYAPPS_SECRET: ${{ secrets.SHINYAPPS_SECRET || vars.SHINYAPPS_SECRET }}
         run: |
-          [ -n "$SHINYAPPS_NAME" ] && [ -n "$SHINYAPPS_TOKEN" ] && [ -n "$SHINYAPPS_SECRET" ] || { echo "Error: Missing required secrets (SHINYAPPS_NAME, SHINYAPPS_TOKEN, SHINYAPPS_SECRET)"; exit 1; }
+          [ -n "$SHINYAPPS_APPNAME" ] && [ -n "$SHINYAPPS_NAME" ] && [ -n "$SHINYAPPS_TOKEN" ] && [ -n "$SHINYAPPS_SECRET" ] || { echo "Error: Missing required secrets (SHINYAPPS_APPNAME, SHINYAPPS_NAME, SHINYAPPS_TOKEN, SHINYAPPS_SECRET)"; exit 1; }
 
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -38,28 +41,74 @@ jobs:
         with:
           r-version: '4.5.1'
 
-      - name: Capture CRAN snapshot from R release date
-        uses: ./.github/actions/capture-cran-snapshot
-
-      - name: Configure CRAN snapshot
-        uses: r-lib/actions/setup-r@v2
+      - name: Cache R packages
+        id: cache-r-packages
+        uses: actions/cache@v4
         with:
-          r-version: '4.5.1'
-          install-r: false
-          cran: "${{ env.CRAN_SNAPSHOT }}"
+          path: ~/R/deploy-library
+          key: ${{ runner.os }}-r-4.5.1-deploy-${{ hashFiles('DESCRIPTION') }}
+          restore-keys: |
+            ${{ runner.os }}-r-4.5.1-deploy-
+            ${{ runner.os }}-r-4.5.1-
 
-      - uses: r-lib/actions/setup-r-dependencies@v2
-        with:
-          extra-packages: any::rsconnect,any::desc
-          cache: true
-          cache-version: ubuntu-r-4-5-1
+      - name: Configure cached R library
+        run: |
+          deploy_lib="${HOME}/R/deploy-library"
+          mkdir -p "$deploy_lib"
+          echo "R_LIBS_USER=$deploy_lib" >> "$GITHUB_ENV"
 
-      - name: Deploy to shinyapps.io
+      - name: Install deployment packages
+        env:
+          PKG_CACHE_HIT: ${{ steps.cache-r-packages.outputs.cache-hit }}
+        run: |
+          deploy_lib <- Sys.getenv("R_LIBS_USER", unset = "")
+          if (deploy_lib == "") {
+            deploy_lib <- file.path(Sys.getenv("HOME"), "R", "deploy-library")
+          }
+          dir.create(deploy_lib, recursive = TRUE, showWarnings = FALSE)
+          .libPaths(c(deploy_lib, .libPaths()))
+          cache_hit <- identical(Sys.getenv("PKG_CACHE_HIT"), "true")
+          repos <- getOption("repos")
+          if (!cache_hit) {
+            try(remove.packages(desc::desc_get("Package")), silent = TRUE)
+            if (!"remotes" %in% rownames(installed.packages())) install.packages("remotes", repos = repos)
+            pkgs <- c("sessioninfo", "desc", "devtools", "golem", "pkgload", "rsconnect", "usethis")
+            remotes::install_cran(pkgs, repos = repos, upgrade = "never", force = FALSE)
+            remotes::install_deps(dependencies = TRUE)
+            deps <- rsconnect::appDependencies(appDir = ".", appFiles = "DESCRIPTION", appMode = "shiny")
+            bad <- deps[is.na(deps$Source) | deps$Source %in% c("unknown", "source"), , drop = FALSE]
+            if (nrow(bad)) remotes::install_cran(bad$Package, repos = repos, upgrade = "never", force = TRUE)
+          } else {
+            message("Cache hit detected for deployment library; skipping reinstalls.")
+          }
+          deps <- rsconnect::appDependencies(appDir = ".", appFiles = "DESCRIPTION", appMode = "shiny")
+          print(deps)
+        shell: Rscript {0}
+
+      - name: Deploy to shinyapps.io (as package)
         env:
           R_CONFIG_ACTIVE: production
-          CRAN_SNAPSHOT: ${{ env.CRAN_SNAPSHOT }}
+          SHINYAPPS_APPNAME: ${{ secrets.SHINYAPPS_APPNAME || vars.SHINYAPPS_APPNAME }}
           SHINYAPPS_NAME: ${{ secrets.SHINYAPPS_NAME || vars.SHINYAPPS_NAME }}
           SHINYAPPS_TOKEN: ${{ secrets.SHINYAPPS_TOKEN || vars.SHINYAPPS_TOKEN }}
           SHINYAPPS_SECRET: ${{ secrets.SHINYAPPS_SECRET || vars.SHINYAPPS_SECRET }}
         run: |
-          Rscript inst/tasks/deploy_to_shinyio.R
+          deploy_lib <- Sys.getenv("R_LIBS_USER", unset = "")
+          if (deploy_lib != "") {
+            dir.create(deploy_lib, recursive = TRUE, showWarnings = FALSE)
+            .libPaths(c(deploy_lib, .libPaths()))
+          }
+          # Prepare the application for deployment
+          unlink(c(".Rprofile", ".git", ".github"), recursive = TRUE, force = TRUE)
+          # Add shinyapps.io file
+          golem::add_shinyappsio_file(open = FALSE)
+          # Remove package namespace from app.R to prevent rsconnect from treating it as a non-reproducible source dependency
+          pkg_name <- desc::desc_get("Package")
+          app_content <- paste(readLines("app.R", encoding = "UTF-8"), collapse = "\n")
+          pattern <- paste0(pkg_name, "::run_app()")
+          app_content_clean <- gsub(pattern, "run_app()", app_content, fixed = TRUE)
+          writeLines(app_content_clean, con = "app.R", useBytes = TRUE)
+          # Deploy the application
+          rsconnect::setAccountInfo(name = Sys.getenv('SHINYAPPS_NAME'), token = Sys.getenv('SHINYAPPS_TOKEN'), secret = Sys.getenv('SHINYAPPS_SECRET'))
+          rsconnect::deployApp(appName = Sys.getenv('SHINYAPPS_APPNAME'), forceUpdate = TRUE, logLevel = 'normal', launch.browser = FALSE, appMode = "shiny")
+        shell: Rscript {0}

@@ -2,8 +2,16 @@
 # Need help debugging build failures? Start at
 # https://github.com/r-lib/actions#where-to-find-help
 on:
-  push:
   pull_request:
+  push:
+    branches:
+      - master
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Git ref (branch, tag, or SHA) to check'
+        required: false
+        default: ''
 
 name: R-CMD-check
 
@@ -12,6 +20,8 @@ permissions: read-all
 jobs:
   R-CMD-check:
     runs-on: ubuntu-latest
+    container:
+      image: rocker/shiny-verse:4.5.1
     
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
@@ -37,9 +47,18 @@ jobs:
           install-r: false
           cran: "${{ env.CRAN_SNAPSHOT }}"
 
-      - uses: r-lib/actions/setup-r-dependencies@v2
+      - name: Cache check tooling
+        uses: r-lib/actions/setup-r-dependencies@v2
         with:
+          packages: |
+            any::sessioninfo
           extra-packages: any::roxygen2,any::rcmdcheck,any::desc
+          cache: true
+          cache-version: ubuntu-r-4-5-1
+
+      - name: Cache package dependencies
+        uses: r-lib/actions/setup-r-dependencies@v2
+        with:
           cache: true
           cache-version: ubuntu-r-4-5-1
             
