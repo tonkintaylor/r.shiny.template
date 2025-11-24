@@ -30,6 +30,6 @@ golem::add_shinyappsio_file(open = FALSE)
 
 # Deploy
 # Use appPrimaryDoc to treat this as a document deployment (not a package)
-# This prevents rsconnect from trying to reinstall the r1099894 package
+# This prevents rsconnect from trying to reinstall the package
 rsconnect::setAccountInfo(name = Sys.getenv('SHINYAPPS_NAME'), token = Sys.getenv('SHINYAPPS_TOKEN'), secret = Sys.getenv('SHINYAPPS_SECRET'))
 rsconnect::deployApp(appName = Sys.getenv('SHINYAPPS_APPNAME'), forceUpdate = TRUE, logLevel = 'normal', launch.browser = FALSE, appMode = "shiny")

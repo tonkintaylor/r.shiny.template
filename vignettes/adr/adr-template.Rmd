@@ -1,4 +1,4 @@
-# Architecture Decision Record Template
+# ADR-XXX: Architecture Decision Record Template
 
 ## Decision
 

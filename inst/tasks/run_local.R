@@ -5,7 +5,7 @@
 # Set development options for hot reload
 options(
   shiny.autoreload = TRUE,
-  shiny.port = 1023
+  shiny.port = 8000
 )     
 
 # Load the package in development mode

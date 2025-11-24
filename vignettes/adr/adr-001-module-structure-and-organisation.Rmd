@@ -1,6 +1,4 @@
----
-title: "ADR-001: Module Structure and Organisation"
----
+# ADR-001: Module Structure and Organisation
 
 ## Decision
 

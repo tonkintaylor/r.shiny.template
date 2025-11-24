@@ -1,11 +1,4 @@
----
-title: "ADR-004: Dashboard Page Component Extraction"
-output: rmarkdown::html_vignette
-vignette: >
-  %\VignetteIndexEntry{ADR-004: Dashboard Page Component Extraction}
-  %\VignetteEngine{knitr::rmarkdown}
-  %\VignetteEncoding{UTF-8}
----
+# ADR-001: Dashboard Page Component Extraction
 
 ## Decision
 
