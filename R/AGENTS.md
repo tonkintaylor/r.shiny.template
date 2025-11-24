@@ -6,7 +6,7 @@
 ## Namespace Management
 
 - **Prefer `@importFrom` over `@import`**: Always use `@importFrom package_name specific_functions` rather than `@import package_name` for all packages. This keeps the namespace clean and makes dependencies explicit by only importing the functions actually used in the codebase.
-- **Centralize imports in `r1099894-package.R`**: Declare all `@importFrom` statements in `R/r1099894-package.R` instead of in individual function roxygen comments. This provides a single source of truth for all package dependencies.
+- **Centralize imports in `<pkg-name>-package.R`**: Declare all `@importFrom` statements in `R/<pkg-name>-package.R` instead of in individual function roxygen comments. This provides a single source of truth for all package dependencies.
 - **Exception**: Only use `@import` in rare cases where a package is used extensively throughout the codebase (e.g., `rlang` for error handling utilities across many functions).
 
 ## Shiny App
