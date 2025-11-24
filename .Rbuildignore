@@ -8,6 +8,8 @@ $run_dev.*
 ^README\.Rmd$
 ^CODE_OF_CONDUCT\.md$
 ^scratchpad\.md$
-^app\.R$
 ^\.Renviron\.example$
 ^\.github$
+^.*\.log$
+^AGENTS\.md$
+^rsconnect$

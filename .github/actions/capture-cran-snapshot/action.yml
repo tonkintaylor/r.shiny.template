@@ -14,7 +14,7 @@ runs:
           as.integer(version_info$month),
           as.integer(version_info$day)
         )
-        repos <- sprintf("https://packagemanager.rstudio.com/cran/%s", release_date)
+        repos <- sprintf("https://packagemanager.posit.co/cran/%s", release_date)
         cat(
           sprintf("CRAN_SNAPSHOT=%s\n", repos),
           file = Sys.getenv("GITHUB_ENV"),

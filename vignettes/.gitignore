@@ -1,0 +1,7 @@
+*.html
+*.R
+
+/.quarto/
+*.pdf
+*.tex
+*.log

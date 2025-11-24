@@ -12,3 +12,4 @@ man/
 scratchpad.md
 inst/doc
 /.quarto/
+*.html

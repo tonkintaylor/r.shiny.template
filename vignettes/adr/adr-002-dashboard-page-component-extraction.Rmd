@@ -1,0 +1,133 @@
+---
+title: "ADR-004: Dashboard Page Component Extraction"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{ADR-004: Dashboard Page Component Extraction}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+## Decision
+
+Extract `dashboardSidebar`, `dashboardBody`, and the controlbar into separate module-like functions with `app-page-*` naming convention to improve code organization and maintainability of the main application UI.
+
+## Status
+
+**Accepted** (2025-11-14) - **Implementation Complete**
+
+## Context
+
+The original `R/app-ui.R` file contained over 350 lines of code with significant UI complexity:
+
+- `dashboardSidebar` block: 68 lines of nested menu structure
+- `dashboardBody` block: 150+ lines of repetitive `tabItems()` definitions  
+- All combined into a single monolithic file that became difficult to navigate and maintain
+
+The existing `mod_controlbar.R` module demonstrated the effectiveness of extracting complex components into separate files, following Shiny's module pattern for code organization.
+
+### Constraints and Objectives
+
+- **Maintainability:** Reduce cognitive load when working with the UI
+- **Scalability:** Enable easier addition/modification of sidebar items or tabs
+- **Consistency:** Follow the established pattern used by `mod_controlbar.R`
+- **No Breaking Changes:** Maintain full backward compatibility with existing server-side logic
+- **Internal Functions Only:** All extracted functions use `@keywords internal` (no NAMESPACE exports needed)
+
+## Options Considered
+
+**Option A: Keep all code in `app-ui.R` (Status quo)**
+- Pros: Single file, no additional imports
+- Cons: Large file becomes harder to maintain, difficult to locate specific sections
+
+**Option B: Extract into separate files with `app-page-*` naming (Selected)**
+- Pros: Clear separation of concerns, easier to navigate, consistent with non-module components
+- Cons: Adds two new files to R/ directory
+
+**Option C: Extract into `mod_*` files**
+- Pros: Follows Shiny module naming conventions
+- Cons: These components are not Shiny modules (they don't use `moduleServer`), naming would be misleading
+
+## Decision Rationale
+
+**Option B** was selected because:
+
+1. **Semantic Accuracy:** Components like sidebar and body are not Shiny modules, so `mod_*` naming is semantically incorrect
+2. **Naming Convention:** The `app-page-*` prefix accurately describes these as core application page components
+3. **Consistency:** Aligns with the refactoring of controlbar from `mod_controlbar` to `app_page_controlbar`
+4. **Maintainability:** Extracts complex UI logic into focused, single-purpose files
+5. **No Overhead:** Internal functions require no NAMESPACE management
+
+## Consequences
+
+### Positive
+
+- ✅ Improved code organization and readability
+- ✅ Easier to locate and modify specific UI sections
+- ✅ Better test-ability of individual components
+- ✅ Reduced complexity in the main `app_ui()` function
+- ✅ No NAMESPACE changes required (all functions are internal)
+- ✅ No additional dependencies or imports
+
+### Negative
+
+- ⚠️ Three additional R files (though minimal overhead)
+- ⚠️ Developers need to understand where each component lives
+
+### Neutral
+
+- ○ `app-ui.R` now primarily serves as a layout orchestrator rather than implementation
+
+## Implementation Details
+
+### Files Created
+
+#### `R/app-page-sidebar.R`
+- Function: `app_page_sidebar_ui()`
+- Returns: Complete `dashboardSidebar()` component with navigation structure
+- Lines extracted: 68 lines from original `app-ui.R`
+
+#### `R/app-page-body.R`
+- Function: `app_page_body_ui()`
+- Returns: Complete `dashboardBody()` component with all tab items
+- Lines extracted: 150+ lines from original `app-ui.R`
+
+#### `R/app-page-controlbar.R`
+- **Renamed from:** `R/mod-controlbar.R`
+- Functions:
+  - `app_page_controlbar_ui()` (formerly `mod_controlbar_ui()`)
+  - `app_page_controlbar_server()` (formerly `mod_controlbar_server()`)
+- Maintains full backward compatibility with existing server-side logic
+
+### Files Modified
+
+#### `R/app-ui.R`
+- Line 26-93: Replaced with `app_page_sidebar_ui()`
+- Line 95-244: Replaced with `app_page_body_ui()`
+- Line 247: Updated from `mod_controlbar_ui()` to `app_page_controlbar_ui()`
+- **Result:** Reduced from 367 lines to ~80 lines
+
+#### `R/app-server.R`
+- Line 12: Updated from `mod_controlbar_server()` to `app_page_controlbar_server()`
+- No functional changes to logic
+
+### Files Deleted
+
+#### `R/mod-controlbar.R`
+- Replaced by `R/app-page-controlbar.R`
+
+## Follow-up Actions
+
+1. ✅ Created `R/app-page-sidebar.R`
+2. ✅ Created `R/app-page-body.R`
+3. ✅ Created `R/app-page-controlbar.R`
+4. ✅ Updated `R/app-ui.R`
+5. ✅ Updated `R/app-server.R`
+6. ✅ Deleted `R/mod-controlbar.R`
+7. ⬜ Run `devtools::document()` to regenerate NAMESPACE
+8. ⬜ Run test suite to verify functionality preserved
+9. ⬜ Review UI rendering in application
+
+## References
+
+- Related ADR: `adr-001-module-structure-and-organisation.Rmd`
+- Shiny modules guide: https://shiny.posit.co/r/articles/improve-user-experience/modules/

@@ -1,0 +1,184 @@
+---
+title: "ADR-001: Module Structure and Organisation"
+---
+
+## Decision
+
+Adopt a single-file-per-module organisation where each Shiny module is defined entirely within one file. Each module file contains both UI and server functions as separate, named functions rather than spreading module logic across multiple files. Module files follow the naming convention (`mod-<domain>-<module_name>.R`), and both the UI and server functions use consistent naming: `mod_<domain>_<module_name>_ui()` and `mod_<domain>_<module_name>_server()`.
+
+## Status
+
+Proposed — 14 November 2025.
+
+## Context
+
+When implementing Shiny modules, developers commonly face two structural choices within R's constraints:
+
+1. **Two-file approach:** Define UI functions in `mod-<domain>-<name>_ui.R` and server functions in `mod-<domain>-<name>_server.R`, both in the flat `R/` directory. This doubles the file count and scatters related logic.
+2. **Single-file approach:** Define both UI and server functions in one file, keeping related logic together and reducing file clutter.
+
+R package standards require all functions to be defined in files at the top level of `R/`; subdirectories are ignored during package loading and roxygen2 documentation generation. This constraint makes a scoped naming convention essential to distinguish between multiple modules.
+
+With multiple modules across different domains, the choice of organisation significantly impacts:
+- **File count and workspace clutter:** Two-file approach leads to many files; single-file keeps it to fewer files.
+- **Code discoverability:** Developers quickly locate all module logic by opening one file.
+- **Maintenance:** Changes to a module stay localised to one file.
+- **R package conventions:** Standard R package structure prefers a flat `R/` directory; subdirectories are discouraged.
+
+## Options Considered
+
+1. **Two files per module (separate UI/server in flat `R/` directory)** — Define UI functions in `mod-<domain>-<name>_ui.R` and server functions in `mod-<domain>-<name>_server.R`, both at the top level of `R/`.
+   - Drawback: Doubles file count (~48+ files); separates related logic across two files; requires developers to open and navigate between two files when modifying a module.
+
+2. **Single-file-per-module (UI + server in one file)** — Define both UI and server functions in a single file named `mod-<domain>-<name>.R`.
+   - Benefit: Keeps related logic together; reduces file clutter; easier to navigate and refactor; fewer files to manage.
+   - Adopted option.
+
+3. **Single monolithic file for all modules** — Define all UI and server functions in one or two large files.
+   - Drawback: Difficult to navigate; hard to maintain; poor discoverability; extremely difficult to split responsibilities.
+
+4. **Subdirectories by domain** — Organise files as `R/domain/mod-feature.R`.
+   - Drawback: R package standards prohibit subdirectories in `R/`; files in subdirectories are ignored during package loading and roxygen2 documentation generation. Only functions at the top level of `R/` are sourced automatically.
+
+## Decision Rationale
+
+**Single-File Organisation:**  
+Each module is defined in exactly one file containing:
+- One or more UI functions: `mod_<domain>_<module_name>_ui(id)` for primary input/display, and optionally `mod_<domain>_<module_name>_<purpose>_ui(id)` for additional UI sections (e.g., output/display), where `<purpose>` is inserted between `<module_name>` and the `_ui` suffix (e.g., `mod_domain_feature_subfeature_ui(id)`).
+- One or more server functions:  
+  - For primary logic: `mod_<domain>_<module_name>_server(id, ...)` (e.g., `mod_domain_feature_server(id, params)`)  
+  - For additional server sections with a specific purpose: `mod_<domain>_<module_name>_<purpose>_server(id, ...)` (e.g., `mod_domain_feature_subfeature_server(id, data)` for output/display)
+- Any helper utilities specific to that module (e.g., `domain_feature_helper()`)
+
+**Example:** A module may contain both input controls and output displays (e.g., input UI + output UI), with corresponding server functions for handling input reactives and computing output plots.
+
+**File Naming:**  
+Follows naming conventions:
+- `R/mod-<domain>-<feature>.R`
+
+Example structure:
+```
+R/
+  mod-domain-feature_a.R          (UI + server for Feature A)
+  mod-domain-feature_b.R          (UI + server for Feature B)
+  mod-tools-utility.R             (UI + server for Utility tool)
+  ...
+```
+
+**Function Naming Within Files:**  
+Both UI and server functions use scoped prefixes:
+
+```r
+# File: mod-domain-feature.R
+# ============================================================================
+# UI: Feature Input
+# ============================================================================
+mod_domain_feature_ui <- function(id) {
+  ns <- NS(id)
+  tagList(
+    # Input UI content here
+  )
+}
+
+# ============================================================================
+# UI: Feature Output
+# ============================================================================
+mod_domain_feature_output_ui <- function(id) {
+  ns <- NS(id)
+  tagList(
+    # Output UI content here
+  )
+}
+
+# ============================================================================
+# SERVER: Feature Input
+# ============================================================================
+mod_domain_feature_server <- function(id, params) {
+  moduleServer(id, function(input, output, session) {
+    # Input server logic here
+  })
+}
+
+# ============================================================================
+# SERVER: Feature Output
+# ============================================================================
+mod_domain_feature_output_server <- function(id, data) {
+  moduleServer(id, function(input, output, session) {
+    # Output server logic here
+  })
+}
+
+# ============================================================================
+# Helper utilities (internal to this module)
+# ============================================================================
+domain_feature_helper <- function(arg) {
+  # Implementation
+}
+```
+
+**Rationale:**
+- **Simplicity:** One file per module is intuitive and easy to locate.
+- **Discoverability:** All module logic is in one place; developers open the file and see both UI and server.
+- **Maintainability:** Changes to a module don't require touching multiple files; reduces risk of inconsistency.
+- **R Package Standards:** Keeps the `R/` directory flat, avoiding violations of R package conventions.
+- **Scalability:** With 24+ calculators, single-file organisation keeps the `R/` directory manageable (~27 files vs. 50+).
+- **Testing:** Tests can import one module file and test both UI and server logic together.
+- **Documentation:** Roxygen2 comments naturally group module functions (UI, server, helpers) by prefix, improving visibility in generated `.Rd` files.
+
+### Trade-offs
+
+**File Size vs. Code Organisation:**  
+Some modules may grow beyond 200 lines. This is acceptable; developers should:
+- Use clear section comments to separate UI, server, and helper logic
+- Extract large shared utilities into separate module-level helper files if needed (e.g., `mod-domain-common-utilities.R`)
+- Consider splitting a complex module into multiple logical sub-modules if it becomes unwieldy
+
+**Shared Logic Across Modules:**  
+If multiple modules within the same domain require identical logic:
+- Extract shared utilities into a separate file: `R/domain-common-utilities.R` with functions prefixed `domain_*`
+- Alternatively, define shared logic in an existing helper module
+- Avoid unnecessary duplication; prioritise DRY principles
+
+## Consequences
+
+**Positive:**
+- Single file per module is intuitive and requires no file navigation overhead.
+- All related logic (UI, server, helpers) is co-located, reducing context switching.
+- Fewer files in `R/` directory reduces clutter and simplifies project navigation.
+- Follows R package standards and conventions.
+- Easier to refactor: rename or split a module without managing multiple file locations.
+- Roxygen2 documentation groups related functions by prefix, improving `.Rd` visibility.
+
+**Negative:**
+- File size may grow as a module becomes more complex (e.g., 200+ lines).
+- No forced separation of concerns between UI and server logic (developer discipline required to keep code organised).
+- If two modules share significant logic, refactoring shared code requires additional helper utilities.
+
+## Follow-up Actions
+
+1. **Audit existing modules:** Review all current Shiny modules and ensure they follow single-file-per-module organisation.
+
+2. **Create new modules per convention:** When implementing new modules, follow the single-file template:
+   - File: `R/mod-<domain>-<name>.R`
+   - Functions: `mod_<domain>_<name>_ui()`, `mod_<domain>_<name>_server()`
+   - Helpers: `<domain>_<name>_helper_function()`
+
+3. **Shared utility modules:** If a domain requires multiple shared helpers across modules, optionally create a utility module:
+   - File: `R/mod-domain-common-utilities.R` (optional; only if substantial shared logic exists)
+   - Functions: `domain_shared_helper()`, etc.
+
+4. **Documentation template:** Create a template in `R/mod-template.R` demonstrating the single-file structure:
+   - Shows UI function anatomy
+   - Shows server function anatomy
+   - Includes roxygen2 boilerplate
+   - Comments on separation concerns within the file
+
+5. **Naming consistency review:** Ensure all new and refactored modules follow these conventions.
+
+6. **Link ADRs:** Reference this ADR from the package README/DEVELOPMENT guide for visibility.
+
+## References
+
+- **Style Guide:** `.github/copilot-instructions.md`
+- **Shiny Module Documentation:** https://shiny.posit.co/r/articles/modules/
+
